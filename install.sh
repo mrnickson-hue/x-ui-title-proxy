@@ -38,7 +38,9 @@ esac
 # Ensure sqlite3 is available (needed to read 3X-UI settings)
 if ! command -v sqlite3 &>/dev/null; then
   info "sqlite3 not found, installing..."
-  apt-get install -y -qq sqlite3 2>/dev/null || yum install -y -q sqlite 2>/dev/null || true
+  apt-get update -qq && apt-get install -y sqlite3 || \
+    yum install -y sqlite || \
+    warn "Could not install sqlite3 — panel port detection unavailable"
 fi
 
 # Get latest release tag
