@@ -186,17 +186,53 @@ systemctl enable x-ui-proxy
 systemctl restart x-ui-proxy
 success "Service enabled and started"
 
+# --- Detect panel URL ---
+PANEL_URL=""
+DOMAIN=""
+BASE_PATH=""
+if [ -f "/etc/x-ui/x-ui.db" ] && command -v sqlite3 &>/dev/null; then
+  BASE_PATH=$(sqlite3 /etc/x-ui/x-ui.db "SELECT value FROM settings WHERE key='webBasePath';" 2>/dev/null)
+fi
+if [ -f "$CERT_FILE" ] && command -v openssl &>/dev/null; then
+  DOMAIN=$(openssl x509 -noout -subject -in "$CERT_FILE" 2>/dev/null \
+    | sed 's/.*CN\s*=\s*//' | sed 's/[, ].*//' | tr -d '\n')
+fi
+[ -z "$DOMAIN" ] && DOMAIN=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -n "$DOMAIN" ] && PANEL_URL="https://${DOMAIN}:${LISTEN_PORT}${BASE_PATH}"
+
+# --- Draw dynamic-width completion box ---
+box_lines=(
+  ""
+  "  Installation complete!"
+  ""
+  "  Proxy port : ${LISTEN_PORT}"
+)
+[ -n "$PANEL_URL" ] && box_lines+=("  Panel URL  : ${PANEL_URL}")
+box_lines+=(
+  ""
+  "  To change title (no restart needed):"
+  "    nano /etc/x-ui-proxy/config.json"
+  ""
+  "  Service commands:"
+  "    systemctl status x-ui-proxy"
+  "    systemctl restart x-ui-proxy"
+  ""
+)
+
+W=0
+for l in "${box_lines[@]}"; do
+  len=${#l}
+  [ "$len" -gt "$W" ] && W=$len
+done
+W=$((W + 2))
+
+BDR=""
+for ((i=0; i<W; i++)); do BDR+="═"; done
+
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  Installation complete!                              ║${NC}"
-echo -e "${GREEN}║                                                      ║${NC}"
-printf "${GREEN}║  %-52s║${NC}\n" "Proxy is running on port :${LISTEN_PORT}"
-echo -e "${GREEN}║                                                      ║${NC}"
-echo -e "${GREEN}║  To change title (no restart needed):                ║${NC}"
-echo -e "${GREEN}║    nano /etc/x-ui-proxy/config.json                  ║${NC}"
-echo -e "${GREEN}║                                                      ║${NC}"
-echo -e "${GREEN}║  Service commands:                                   ║${NC}"
-echo -e "${GREEN}║    systemctl status x-ui-proxy                       ║${NC}"
-echo -e "${GREEN}║    systemctl restart x-ui-proxy                      ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}╔${BDR}╗${NC}"
+for l in "${box_lines[@]}"; do
+  printf "${GREEN}║%-${W}s║${NC}\n" "$l"
+done
+echo -e "${GREEN}╚${BDR}╝${NC}"
 echo ""
