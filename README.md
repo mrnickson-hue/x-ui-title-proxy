@@ -7,6 +7,8 @@ A lightweight HTTPS reverse proxy for [3X-UI](https://github.com/MHSanaei/3x-ui)
 
 The title is read from a config file on every request, so you can change it at any time **without restarting** the proxy.
 
+> **Why does this exist?** A feature request to add custom title management directly to the 3X-UI admin panel was submitted to the project, but received no response from the developer. So this proxy was built as a self-contained alternative — no panel modifications, no waiting for upstream.
+
 ---
 
 ## How it works
