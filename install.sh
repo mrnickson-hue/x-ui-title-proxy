@@ -92,14 +92,14 @@ fi
 # --- Collect configuration ---
 echo ""
 echo -e "${YELLOW}Please provide the following configuration:${NC}"
+if [ -n "$CURRENT_PANEL_PORT" ]; then
+  echo -e "  ${CYAN}Current 3X-UI panel port: ${CURRENT_PANEL_PORT}${NC}"
+fi
 echo ""
 
 read -rp "  Proxy listen port        [5555]: " LISTEN_PORT
 LISTEN_PORT="${LISTEN_PORT:-5555}"
 
-if [ -n "$CURRENT_PANEL_PORT" ]; then
-  echo -e "  ${CYAN}Current panel port: ${CURRENT_PANEL_PORT}${NC}"
-fi
 read -rp "  3X-UI panel backend port [5554]: " BACKEND_PORT
 BACKEND_PORT="${BACKEND_PORT:-5554}"
 
