@@ -126,8 +126,11 @@ echo ""
 info "Downloading x-ui-proxy $LATEST ($ARCH_SUFFIX)..."
 systemctl stop x-ui-proxy 2>/dev/null || true
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/${BINARY_NAME}-${ARCH_SUFFIX}"
-TMP_BIN=$(mktemp)
-curl -sSfL "$DOWNLOAD_URL" -o "$TMP_BIN"
+TMP_BIN="/tmp/x-ui-proxy-new"
+rm -f "$TMP_BIN"
+curl -sSL "$DOWNLOAD_URL" -o "$TMP_BIN"
+[ $? -ne 0 ] && error "Download failed. Check your internet connection."
+[ ! -s "$TMP_BIN" ] && error "Downloaded file is empty. Try again."
 chmod +x "$TMP_BIN"
 mv -f "$TMP_BIN" "$INSTALL_BIN"
 success "Binary installed to $INSTALL_BIN"
