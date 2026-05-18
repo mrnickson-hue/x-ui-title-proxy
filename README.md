@@ -1,5 +1,7 @@
 # x-ui-title-proxy
 
+[🇷🇺 Русская версия](README_RU.md)
+
 A lightweight HTTPS reverse proxy for [3X-UI](https://github.com/MHSanaei/3x-ui) that replaces the browser tab title with your own custom text — without modifying the panel itself.
 
 **Before:** `node4.example.com - Inbounds`  
