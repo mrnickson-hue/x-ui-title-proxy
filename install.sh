@@ -124,6 +124,7 @@ CONFIRM="${CONFIRM:-Y}"
 # --- Download binary ---
 echo ""
 info "Downloading x-ui-proxy $LATEST ($ARCH_SUFFIX)..."
+systemctl stop x-ui-proxy 2>/dev/null || true
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/${BINARY_NAME}-${ARCH_SUFFIX}"
 curl -sSfL "$DOWNLOAD_URL" -o "$INSTALL_BIN"
 chmod +x "$INSTALL_BIN"
