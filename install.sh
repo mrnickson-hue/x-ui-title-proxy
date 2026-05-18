@@ -80,9 +80,14 @@ detect_ssl_from_xui
 DEFAULT_CERT="${DETECTED_CERT:-/etc/x-ui/ssl/fullchain.cer}"
 DEFAULT_KEY="${DETECTED_KEY:-/etc/x-ui/ssl/your-domain.key}"
 
-# Show what was found
 if [ -n "$DETECTED_CERT" ]; then
   info "SSL certificate auto-detected from 3X-UI settings"
+fi
+
+# Read current panel port from 3X-UI database
+CURRENT_PANEL_PORT=""
+if [ -f "/etc/x-ui/x-ui.db" ] && command -v sqlite3 &>/dev/null; then
+  CURRENT_PANEL_PORT=$(sqlite3 /etc/x-ui/x-ui.db "SELECT value FROM settings WHERE key='webPort';" 2>/dev/null)
 fi
 
 # --- Collect configuration ---
@@ -93,6 +98,9 @@ echo ""
 read -rp "  Proxy listen port        [5555]: " LISTEN_PORT
 LISTEN_PORT="${LISTEN_PORT:-5555}"
 
+if [ -n "$CURRENT_PANEL_PORT" ]; then
+  echo -e "  ${CYAN}Current panel port: ${CURRENT_PANEL_PORT}${NC}"
+fi
 read -rp "  3X-UI panel backend port [5554]: " BACKEND_PORT
 BACKEND_PORT="${BACKEND_PORT:-5554}"
 
@@ -120,6 +128,20 @@ echo ""
 read -rp "  Proceed? [Y/n]: " CONFIRM
 CONFIRM="${CONFIRM:-Y}"
 [[ "$CONFIRM" =~ ^[Nn] ]] && echo "Aborted." && exit 0
+
+# --- Update 3X-UI panel port if needed ---
+if [ -f "/etc/x-ui/x-ui.db" ] && command -v sqlite3 &>/dev/null; then
+  if [ "$CURRENT_PANEL_PORT" != "$BACKEND_PORT" ]; then
+    info "Changing 3X-UI panel port: ${CURRENT_PANEL_PORT} → ${BACKEND_PORT}..."
+    systemctl stop x-ui 2>/dev/null || true
+    sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value='${BACKEND_PORT}' WHERE key='webPort';"
+    systemctl start x-ui 2>/dev/null || true
+    sleep 2
+    success "Panel port updated to ${BACKEND_PORT}"
+  else
+    info "Panel port is already ${BACKEND_PORT}, no change needed"
+  fi
+fi
 
 # --- Download binary ---
 echo ""
