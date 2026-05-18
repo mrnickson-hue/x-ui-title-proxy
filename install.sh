@@ -35,6 +35,12 @@ case "$ARCH" in
   *) error "Unsupported architecture: $ARCH" ;;
 esac
 
+# Ensure sqlite3 is available (needed to read 3X-UI settings)
+if ! command -v sqlite3 &>/dev/null; then
+  info "sqlite3 not found, installing..."
+  apt-get install -y -qq sqlite3 2>/dev/null || yum install -y -q sqlite 2>/dev/null || true
+fi
+
 # Get latest release tag
 info "Fetching latest release..."
 LATEST=$(curl -sSf "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
