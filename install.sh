@@ -126,8 +126,10 @@ echo ""
 info "Downloading x-ui-proxy $LATEST ($ARCH_SUFFIX)..."
 systemctl stop x-ui-proxy 2>/dev/null || true
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/${BINARY_NAME}-${ARCH_SUFFIX}"
-curl -sSfL "$DOWNLOAD_URL" -o "$INSTALL_BIN"
-chmod +x "$INSTALL_BIN"
+TMP_BIN=$(mktemp)
+curl -sSfL "$DOWNLOAD_URL" -o "$TMP_BIN"
+chmod +x "$TMP_BIN"
+mv -f "$TMP_BIN" "$INSTALL_BIN"
 success "Binary installed to $INSTALL_BIN"
 
 # --- Write config ---
