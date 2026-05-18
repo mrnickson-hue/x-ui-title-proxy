@@ -12,7 +12,7 @@ The title is read from a config file on every request, so you can change it at a
 ## How it works
 
 ```
-Browser → :8585 (x-ui-title-proxy) → :8584 (3X-UI panel)
+Browser → :5555 (x-ui-title-proxy) → :5554 (3X-UI panel)
 ```
 
 The proxy sits in front of your 3X-UI panel. For every HTML response it:
@@ -43,8 +43,8 @@ The installer will ask you:
 
 | Prompt | Default | Description |
 |--------|---------|-------------|
-| Proxy listen port | `8585` | The public port users connect to |
-| 3X-UI backend port | `8584` | The port your panel runs on internally |
+| Proxy listen port | `5555` | The public port users connect to |
+| 3X-UI backend port | `5554` | The port your panel runs on internally |
 | SSL certificate file | **auto-detected** | Path to your fullchain certificate |
 | SSL private key file | **auto-detected** | Path to your private key |
 | Custom title | `My VPN Server` | What to show in the browser tab |
@@ -57,16 +57,16 @@ After installation, move your 3X-UI panel to the backend port (see [Panel port s
 
 ## Panel port setup
 
-You need 3X-UI to listen on the **backend port** (e.g., `8584`) so the proxy can forward requests to it.
+You need 3X-UI to listen on the **backend port** (e.g., `5554`) so the proxy can forward requests to it.
 
 **Option A — via the 3X-UI web panel:**  
-Settings → Panel Settings → Panel port → set to `8584` → Save
+Settings → Panel Settings → Panel port → set to `5554` → Save
 
 **Option B — via SQLite (if the panel is inaccessible):**
 
 ```bash
 systemctl stop x-ui
-sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value=8584 WHERE key='webPort';"
+sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value=5554 WHERE key='webPort';"
 systemctl start x-ui
 ```
 
@@ -98,8 +98,8 @@ Config file location: `/etc/x-ui-proxy/config.json`
 
 ```json
 {
-  "listen":  ":8585",
-  "backend": "https://127.0.0.1:8584",
+  "listen":  ":5555",
+  "backend": "https://127.0.0.1:5554",
   "cert":    "/etc/x-ui/ssl/fullchain.cer",
   "key":     "/etc/x-ui/ssl/your-domain.key",
   "title":   "My VPN Server (NODE1)"

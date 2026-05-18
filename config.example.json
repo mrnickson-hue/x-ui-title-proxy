@@ -1,6 +1,6 @@
 {
-  "listen":  ":8585",
-  "backend": "https://127.0.0.1:8584",
+  "listen":  ":5555",
+  "backend": "https://127.0.0.1:5554",
   "cert":    "/etc/x-ui/ssl/fullchain.cer",
   "key":     "/etc/x-ui/ssl/your-domain.key",
   "title":   "My VPN Server (NODE1)"

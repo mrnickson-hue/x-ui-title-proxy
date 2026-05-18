@@ -90,11 +90,11 @@ echo ""
 echo -e "${YELLOW}Please provide the following configuration:${NC}"
 echo ""
 
-read -rp "  Proxy listen port        [8585]: " LISTEN_PORT
-LISTEN_PORT="${LISTEN_PORT:-8585}"
+read -rp "  Proxy listen port        [5555]: " LISTEN_PORT
+LISTEN_PORT="${LISTEN_PORT:-5555}"
 
-read -rp "  3X-UI panel backend port [8584]: " BACKEND_PORT
-BACKEND_PORT="${BACKEND_PORT:-8584}"
+read -rp "  3X-UI panel backend port [5554]: " BACKEND_PORT
+BACKEND_PORT="${BACKEND_PORT:-5554}"
 
 read -rp "  SSL certificate file     [$DEFAULT_CERT]: " CERT_FILE
 CERT_FILE="${CERT_FILE:-$DEFAULT_CERT}"
