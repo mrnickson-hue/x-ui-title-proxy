@@ -1,0 +1,12 @@
+[Unit]
+Description=x-ui Title Proxy
+After=network.target x-ui.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/x-ui-proxy -config /etc/x-ui-proxy/config.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
