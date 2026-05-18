@@ -74,6 +74,24 @@ systemctl start x-ui
 
 ---
 
+## SSL certificate locations
+
+The installer auto-detects your certificate, but if you need to find it manually — the location depends on how SSL was set up:
+
+| How SSL was issued | Certificate | Private key |
+|--------------------|-------------|-------------|
+| 3X-UI panel built-in (`x-ui ssl`) | `/etc/x-ui/ssl/fullchain.cer` | `/etc/x-ui/ssl/<domain>.key` |
+| acme.sh (standalone) | `~/.acme.sh/<domain>_ecc/fullchain.cer` | `~/.acme.sh/<domain>_ecc/<domain>.key` |
+| Certbot / Let's Encrypt | `/etc/letsencrypt/live/<domain>/fullchain.pem` | `/etc/letsencrypt/live/<domain>/privkey.pem` |
+
+The fastest way to check — ask 3X-UI itself (it stores the paths in its database):
+
+```bash
+sqlite3 /etc/x-ui/x-ui.db "SELECT key,value FROM settings WHERE key IN ('webCertFile','webKeyFile');"
+```
+
+---
+
 ## Configuration
 
 Config file location: `/etc/x-ui-proxy/config.json`
