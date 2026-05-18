@@ -48,33 +48,16 @@ The installer will ask you:
 | Prompt | Default | Description |
 |--------|---------|-------------|
 | Proxy listen port | `5555` | The public port users connect to |
-| 3X-UI backend port | `5554` | The port your panel runs on internally |
+| 3X-UI backend port | `5554` | The port your panel will run on internally. The installer shows the current panel port and updates it automatically. |
 | SSL certificate file | **auto-detected** | Path to your fullchain certificate |
 | SSL private key file | **auto-detected** | Path to your private key |
 | Custom title | `My VPN Server` | What to show in the browser tab |
 
-> **SSL auto-detection:** the installer reads certificate paths directly from the 3X-UI database (`webCertFile` / `webKeyFile`). If the panel has no cert configured, it scans common locations: acme.sh (`~/.acme.sh/<domain>_ecc/`), certbot (`/etc/letsencrypt/live/<domain>/`), and `/etc/x-ui/ssl/`. The detected path is shown as the default — just press Enter to accept it.
-
-After installation, move your 3X-UI panel to the backend port (see [Panel port setup](#panel-port-setup)).
-
----
-
-## Panel port setup
-
-You need 3X-UI to listen on the **backend port** (e.g., `5554`) so the proxy can forward requests to it.
-
-**Option A — via the 3X-UI web panel:**  
-Settings → Panel Settings → Panel port → set to `5554` → Save
-
-**Option B — via SQLite (if the panel is inaccessible):**
-
-```bash
-systemctl stop x-ui
-sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value=5554 WHERE key='webPort';"
-systemctl start x-ui
-```
-
-> **Important:** stop x-ui before editing the database — otherwise it will overwrite your changes on restart.
+The installer handles everything automatically:
+- **SSL paths** — read from the 3X-UI database; falls back to scanning acme.sh, certbot, and `/etc/x-ui/ssl/`
+- **Panel port** — shows the current port, then updates it in the 3X-UI database to the backend port you specify (no manual steps needed)
+- **`webDomain` setting** — removed automatically if present (it causes 403 errors with the proxy)
+- **Panel URL** — shown in the completion screen with the full address
 
 ---
 
@@ -177,6 +160,18 @@ cp config.example.json /etc/x-ui-proxy/config.json
 nano /etc/x-ui-proxy/config.json
 ```
 
+### Set panel port manually
+
+If you installed manually, move the 3X-UI panel to the backend port yourself:
+
+```bash
+systemctl stop x-ui
+sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value=5554 WHERE key='webPort';"
+systemctl start x-ui
+```
+
+> **Important:** stop x-ui before editing the database — otherwise it will overwrite your changes on restart.
+
 ### Install systemd service
 
 ```bash
@@ -232,7 +227,10 @@ ls -la /etc/x-ui/ssl/
 ```
 
 **Port already in use**  
-Another process (likely x-ui itself) is already on the listen port. Make sure you've moved the panel to the backend port first.
+Another process is already on the listen port. Check what's using it:
+```bash
+ss -tlnp | grep 5555
+```
 
 ---
 
