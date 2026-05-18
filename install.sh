@@ -94,6 +94,8 @@ echo ""
 echo -e "${YELLOW}Please provide the following configuration:${NC}"
 if [ -n "$CURRENT_PANEL_PORT" ]; then
   echo -e "  ${CYAN}Current 3X-UI panel port: ${CURRENT_PANEL_PORT}${NC}"
+else
+  echo -e "  ${CYAN}Current 3X-UI panel port: not detected (3X-UI not installed or sqlite3 missing)${NC}"
 fi
 echo ""
 
