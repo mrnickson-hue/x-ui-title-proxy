@@ -42,6 +42,49 @@ LATEST=$(curl -sSf "https://api.github.com/repos/$REPO/releases/latest" | grep '
 [ -z "$LATEST" ] && error "Could not fetch latest release. Check your internet connection."
 info "Latest version: $LATEST"
 
+# --- Auto-detect SSL paths from 3X-UI database ---
+detect_ssl_from_xui() {
+  local db="/etc/x-ui/x-ui.db"
+  [ ! -f "$db" ] && return
+  command -v sqlite3 &>/dev/null || return
+  local cert key
+  cert=$(sqlite3 "$db" "SELECT value FROM settings WHERE key='webCertFile';" 2>/dev/null)
+  key=$(sqlite3  "$db" "SELECT value FROM settings WHERE key='webKeyFile';"  2>/dev/null)
+  [ -n "$cert" ] && DETECTED_CERT="$cert"
+  [ -n "$key"  ] && DETECTED_KEY="$key"
+}
+
+# Scan common acme.sh / certbot locations as fallback
+detect_ssl_from_fs() {
+  # acme.sh ECC (most common with x-ui ssl command)
+  for d in /root/.acme.sh/*_ecc /root/.acme.sh/*; do
+    [ -f "$d/fullchain.cer" ] && DETECTED_CERT="$d/fullchain.cer" && \
+    DETECTED_KEY=$(ls "$d"/*.key 2>/dev/null | head -1) && return
+  done
+  # certbot
+  for d in /etc/letsencrypt/live/*/; do
+    [ -f "${d}fullchain.pem" ] && DETECTED_CERT="${d}fullchain.pem" && \
+    DETECTED_KEY="${d}privkey.pem" && return
+  done
+  # x-ui ssl folder
+  [ -f "/etc/x-ui/ssl/fullchain.cer" ] && \
+    DETECTED_CERT="/etc/x-ui/ssl/fullchain.cer" && \
+    DETECTED_KEY=$(ls /etc/x-ui/ssl/*.key 2>/dev/null | head -1)
+}
+
+DETECTED_CERT=""
+DETECTED_KEY=""
+detect_ssl_from_xui
+[ -z "$DETECTED_CERT" ] && detect_ssl_from_fs
+
+DEFAULT_CERT="${DETECTED_CERT:-/etc/x-ui/ssl/fullchain.cer}"
+DEFAULT_KEY="${DETECTED_KEY:-/etc/x-ui/ssl/your-domain.key}"
+
+# Show what was found
+if [ -n "$DETECTED_CERT" ]; then
+  info "SSL certificate auto-detected from 3X-UI settings"
+fi
+
 # --- Collect configuration ---
 echo ""
 echo -e "${YELLOW}Please provide the following configuration:${NC}"
@@ -53,15 +96,8 @@ LISTEN_PORT="${LISTEN_PORT:-8585}"
 read -rp "  3X-UI panel backend port [8584]: " BACKEND_PORT
 BACKEND_PORT="${BACKEND_PORT:-8584}"
 
-read -rp "  SSL certificate file     [/etc/x-ui/ssl/fullchain.cer]: " CERT_FILE
-CERT_FILE="${CERT_FILE:-/etc/x-ui/ssl/fullchain.cer}"
-
-# Try to auto-detect key file
-DEFAULT_KEY=""
-KEY_DIR=$(dirname "$CERT_FILE")
-KEY_CANDIDATE=$(ls "$KEY_DIR"/*.key 2>/dev/null | head -1)
-[ -n "$KEY_CANDIDATE" ] && DEFAULT_KEY="$KEY_CANDIDATE"
-[ -z "$DEFAULT_KEY" ] && DEFAULT_KEY="/etc/x-ui/ssl/your-domain.key"
+read -rp "  SSL certificate file     [$DEFAULT_CERT]: " CERT_FILE
+CERT_FILE="${CERT_FILE:-$DEFAULT_CERT}"
 
 read -rp "  SSL private key file     [$DEFAULT_KEY]: " KEY_FILE
 KEY_FILE="${KEY_FILE:-$DEFAULT_KEY}"

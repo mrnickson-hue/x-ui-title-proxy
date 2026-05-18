@@ -45,9 +45,11 @@ The installer will ask you:
 |--------|---------|-------------|
 | Proxy listen port | `8585` | The public port users connect to |
 | 3X-UI backend port | `8584` | The port your panel runs on internally |
-| SSL certificate file | `/etc/x-ui/ssl/fullchain.cer` | Path to your fullchain certificate |
-| SSL private key file | auto-detected | Path to your private key |
+| SSL certificate file | **auto-detected** | Path to your fullchain certificate |
+| SSL private key file | **auto-detected** | Path to your private key |
 | Custom title | `My VPN Server` | What to show in the browser tab |
+
+> **SSL auto-detection:** the installer reads certificate paths directly from the 3X-UI database (`webCertFile` / `webKeyFile`). If the panel has no cert configured, it scans common locations: acme.sh (`~/.acme.sh/<domain>_ecc/`), certbot (`/etc/letsencrypt/live/<domain>/`), and `/etc/x-ui/ssl/`. The detected path is shown as the default — just press Enter to accept it.
 
 After installation, move your 3X-UI panel to the backend port (see [Panel port setup](#panel-port-setup)).
 
