@@ -214,7 +214,7 @@ systemctl daemon-reload
 ## Troubleshooting
 
 **Proxy starts but panel shows 403**  
-Check if `webDomain` is set in 3X-UI settings — it causes host-based blocking. Remove it:
+This is caused by the `webDomain` setting in 3X-UI — it enables host-based request filtering that blocks the proxy. The installer removes it automatically. If you installed manually, fix it with:
 ```bash
 systemctl stop x-ui
 sqlite3 /etc/x-ui/x-ui.db "DELETE FROM settings WHERE key='webDomain';"

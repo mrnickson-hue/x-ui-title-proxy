@@ -142,6 +142,23 @@ cat > "$CONFIG_FILE" <<EOF
 EOF
 success "Config written to $CONFIG_FILE"
 
+# --- Remove webDomain from 3X-UI database (causes 403 for proxy requests) ---
+fix_webdomain() {
+  local db="/etc/x-ui/x-ui.db"
+  [ ! -f "$db" ] && return
+  command -v sqlite3 &>/dev/null || return
+  local val
+  val=$(sqlite3 "$db" "SELECT value FROM settings WHERE key='webDomain';" 2>/dev/null)
+  [ -z "$val" ] && return
+  info "Found webDomain=$val in 3X-UI database — removing it (causes 403 with proxy)..."
+  systemctl stop x-ui 2>/dev/null || true
+  sqlite3 "$db" "DELETE FROM settings WHERE key='webDomain';"
+  systemctl start x-ui 2>/dev/null || true
+  sleep 2
+  success "webDomain removed — 3X-UI restarted"
+}
+fix_webdomain
+
 # --- Install systemd service ---
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
