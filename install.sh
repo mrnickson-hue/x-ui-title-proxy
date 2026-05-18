@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 REPO="mrnickson-hue/x-ui-title-proxy"
 BINARY_NAME="x-ui-proxy"
@@ -74,8 +73,8 @@ detect_ssl_from_fs() {
 
 DETECTED_CERT=""
 DETECTED_KEY=""
-detect_ssl_from_xui || true
-{ [ -z "$DETECTED_CERT" ] && detect_ssl_from_fs; } || true
+detect_ssl_from_xui
+[ -z "$DETECTED_CERT" ] && detect_ssl_from_fs
 
 DEFAULT_CERT="${DETECTED_CERT:-/etc/x-ui/ssl/fullchain.cer}"
 DEFAULT_KEY="${DETECTED_KEY:-/etc/x-ui/ssl/your-domain.key}"
@@ -87,7 +86,7 @@ fi
 # Read current panel port from 3X-UI database
 CURRENT_PANEL_PORT=""
 if [ -f "/etc/x-ui/x-ui.db" ] && command -v sqlite3 &>/dev/null; then
-  CURRENT_PANEL_PORT=$(sqlite3 /etc/x-ui/x-ui.db "SELECT value FROM settings WHERE key='webPort';" 2>/dev/null) || true
+  CURRENT_PANEL_PORT=$(sqlite3 /etc/x-ui/x-ui.db "SELECT value FROM settings WHERE key='webPort';" 2>/dev/null)
 fi
 
 # --- Collect configuration ---
@@ -185,7 +184,7 @@ fix_webdomain() {
   sleep 2
   success "webDomain removed — 3X-UI restarted"
 }
-fix_webdomain || true
+fix_webdomain
 
 # --- Install systemd service ---
 cat > "$SERVICE_FILE" <<EOF
