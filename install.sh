@@ -27,6 +27,53 @@ echo ""
 # Check root
 [ "$EUID" -ne 0 ] && error "Please run as root"
 
+# --- Uninstall mode ---
+if [ "${1:-}" = "uninstall" ]; then
+  echo -e "${YELLOW}This will remove x-ui-proxy completely.${NC}"
+  echo ""
+
+  # Show current backend port from config
+  BACKEND_PORT_SAVED=""
+  if [ -f "$CONFIG_FILE" ]; then
+    BACKEND_PORT_SAVED=$(grep '"backend"' "$CONFIG_FILE" 2>/dev/null | grep -oP ':\K[0-9]+(?=")')
+    echo -e "  ${CYAN}Current proxy config: $(cat $CONFIG_FILE)${NC}"
+    echo ""
+  fi
+
+  read -rp "  Proceed with uninstall? [y/N]: " CONFIRM
+  [[ ! "$CONFIRM" =~ ^[Yy] ]] && echo "Aborted." && exit 0
+
+  # Stop and disable service
+  info "Stopping x-ui-proxy service..."
+  systemctl disable --now x-ui-proxy 2>/dev/null || true
+  rm -f "$SERVICE_FILE"
+  systemctl daemon-reload
+  success "Service removed"
+
+  # Remove binary and config
+  rm -f "$INSTALL_BIN"
+  rm -rf "$CONFIG_DIR"
+  success "Files removed"
+
+  # Optionally restore panel port
+  if [ -n "$BACKEND_PORT_SAVED" ] && [ -f "/etc/x-ui/x-ui.db" ] && command -v sqlite3 &>/dev/null; then
+    echo ""
+    read -rp "  Restore 3X-UI panel port back to public port? Enter port or leave empty to skip: " RESTORE_PORT
+    if [ -n "$RESTORE_PORT" ]; then
+      systemctl stop x-ui 2>/dev/null || true
+      sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value='${RESTORE_PORT}' WHERE key='webPort';"
+      systemctl start x-ui 2>/dev/null || true
+      sleep 2
+      success "Panel port restored to ${RESTORE_PORT}"
+    fi
+  fi
+
+  echo ""
+  echo -e "${GREEN}x-ui-proxy has been uninstalled.${NC}"
+  echo ""
+  exit 0
+fi
+
 # Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in

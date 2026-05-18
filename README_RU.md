@@ -193,12 +193,10 @@ bash <(curl -sSL https://raw.githubusercontent.com/mrnickson-hue/x-ui-title-prox
 ## Удаление
 
 ```bash
-systemctl disable --now x-ui-proxy
-rm /usr/local/bin/x-ui-proxy
-rm /etc/systemd/system/x-ui-proxy.service
-rm -rf /etc/x-ui-proxy
-systemctl daemon-reload
+bash <(curl -sSL https://raw.githubusercontent.com/mrnickson-hue/x-ui-title-proxy/main/install.sh) uninstall
 ```
+
+Скрипт остановит и удалит сервис, бинарный файл и конфигурацию. Также предложит восстановить порт панели 3X-UI обратно на публичный.
 
 ---
 

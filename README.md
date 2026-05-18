@@ -197,12 +197,10 @@ Your config file will not be touched.
 ## Uninstall
 
 ```bash
-systemctl disable --now x-ui-proxy
-rm /usr/local/bin/x-ui-proxy
-rm /etc/systemd/system/x-ui-proxy.service
-rm -rf /etc/x-ui-proxy
-systemctl daemon-reload
+bash <(curl -sSL https://raw.githubusercontent.com/mrnickson-hue/x-ui-title-proxy/main/install.sh) uninstall
 ```
+
+The uninstaller will stop and remove the service, binary, and config. It will also offer to restore the 3X-UI panel port back to the public port.
 
 ---
 
