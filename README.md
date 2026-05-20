@@ -186,7 +186,28 @@ systemctl enable --now x-ui-proxy
 
 ---
 
-## Updating
+## Auto-update
+
+The installer sets up a daily cron job that checks GitHub for new releases and updates the binary automatically if one is found. No manual intervention needed.
+
+The update runs at a randomized time between 00:00–05:59 to avoid all servers hitting GitHub simultaneously. Logs are written to `/var/log/x-ui-proxy-update.log`.
+
+To check the log:
+```bash
+tail -f /var/log/x-ui-proxy-update.log
+```
+
+To run an update check manually:
+```bash
+/usr/local/bin/x-ui-proxy-update
+```
+
+To disable auto-update:
+```bash
+crontab -l | grep -v x-ui-proxy-update | crontab -
+```
+
+## Updating manually
 
 Re-run the installer to download the latest binary:
 

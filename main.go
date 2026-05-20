@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.1.0"
+	version           = "1.2.0"
 )
 
 type Config struct {
@@ -77,7 +77,13 @@ func stripWebDomain(body []byte) []byte {
 
 func main() {
 	configPath := flag.String("config", defaultConfigFile, "path to config file")
+	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {

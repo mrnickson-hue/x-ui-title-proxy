@@ -3,6 +3,7 @@
 REPO="mrnickson-hue/x-ui-title-proxy"
 BINARY_NAME="x-ui-proxy"
 INSTALL_BIN="/usr/local/bin/x-ui-proxy"
+UPDATE_SCRIPT="/usr/local/bin/x-ui-proxy-update"
 CONFIG_DIR="/etc/x-ui-proxy"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 SERVICE_FILE="/etc/systemd/system/x-ui-proxy.service"
@@ -50,9 +51,11 @@ if [ "${1:-}" = "uninstall" ]; then
   systemctl daemon-reload
   success "Service removed"
 
-  # Remove binary and config
-  rm -f "$INSTALL_BIN"
+  # Remove binary, update script, and config
+  rm -f "$INSTALL_BIN" "$UPDATE_SCRIPT"
   rm -rf "$CONFIG_DIR"
+  # Remove auto-update cron entry
+  crontab -l 2>/dev/null | grep -v x-ui-proxy-update | crontab - 2>/dev/null || true
   success "Files removed"
 
   # Optionally restore panel port
@@ -264,6 +267,18 @@ systemctl enable x-ui-proxy
 systemctl restart x-ui-proxy
 success "Service enabled and started"
 
+# --- Install auto-update script and cron ---
+curl -sSfL "https://raw.githubusercontent.com/$REPO/main/x-ui-proxy-update.sh" -o "$UPDATE_SCRIPT" 2>/dev/null || \
+  warn "Could not download update script — auto-update will not be configured"
+if [ -f "$UPDATE_SCRIPT" ]; then
+  chmod +x "$UPDATE_SCRIPT"
+  CRON_MIN=$(shuf -i 0-59 -n 1)
+  CRON_HOUR=$(shuf -i 0-5 -n 1)
+  CRON_LINE="$CRON_MIN $CRON_HOUR * * * $UPDATE_SCRIPT >> /var/log/x-ui-proxy-update.log 2>&1"
+  (crontab -l 2>/dev/null | grep -v x-ui-proxy-update; echo "$CRON_LINE") | crontab -
+  success "Auto-update scheduled (daily at ${CRON_HOUR}:$(printf '%02d' $CRON_MIN))"
+fi
+
 # --- Detect panel URL ---
 PANEL_URL=""
 DOMAIN=""
@@ -294,6 +309,8 @@ box_lines+=(
   "  Service commands:"
   "    systemctl status x-ui-proxy"
   "    systemctl restart x-ui-proxy"
+  ""
+  "  Auto-update: daily cron, logs at /var/log/x-ui-proxy-update.log"
   ""
 )
 
