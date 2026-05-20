@@ -2,7 +2,7 @@
 
 [🇷🇺 Русская версия](README_RU.md)
 
-A lightweight HTTPS reverse proxy for [3X-UI](https://github.com/MHSanaei/3x-ui) that replaces the browser tab title with your own custom text — without modifying the panel itself.
+A lightweight HTTPS reverse proxy for [3X-UI](https://github.com/MHSanaei/3x-ui) that replaces the browser tab title with your own custom text and protects against accidental self-lockout — without modifying the panel itself.
 
 **Before:** `node4.example.com - Inbounds`  
 **After:** `My VPN Server (NODE1) - Inbounds`
@@ -24,6 +24,10 @@ The proxy sits in front of your 3X-UI panel. For every HTML response it:
 1. Extracts the CSP nonce from the response headers (3X-UI uses strict Content Security Policy)
 2. Injects a small `<script>` tag with the nonce into `<head>`
 3. The script replaces `document.title` on page load while preserving the page name suffix (e.g., ` - Inbounds`, ` - Settings`)
+
+For every settings POST request it:
+
+4. Strips the `webDomain` field before forwarding to the backend — so it can never be accidentally set via the panel UI (see [webDomain protection](#webdomain-protection))
 
 Everything else (API calls, WebSocket, static assets) is proxied transparently.
 
@@ -204,15 +208,31 @@ The uninstaller will stop and remove the service, binary, and config. It will al
 
 ---
 
+## webDomain protection
+
+3X-UI has a **"Panel Domain"** setting (`webDomain`) that, when set, restricts panel access to requests whose `Host` header matches the configured domain. This blocks all requests from the proxy (which connects via `127.0.0.1`) and causes 403 errors.
+
+The installer clears `webDomain` during setup. But if someone accidentally sets it again through the panel UI, they get locked out with no way to fix it from the browser.
+
+**Since v1.1.0**, the proxy intercepts every settings POST request and silently strips `webDomain` from the JSON body before forwarding it to the backend. The panel reports success, but `webDomain` is never written to the database. The lockout scenario becomes impossible.
+
+If it does get triggered, you'll see a log entry:
+```
+x-ui-proxy: stripped webDomain="example.com" from settings request
+```
+
+---
+
 ## Troubleshooting
 
 **Proxy starts but panel shows 403**  
-This is caused by the `webDomain` setting in 3X-UI — it enables host-based request filtering that blocks the proxy. The installer removes it automatically. If you installed manually, fix it with:
+This is caused by the `webDomain` setting in 3X-UI — it enables host-based request filtering that blocks the proxy. The installer removes it automatically. If you installed manually or upgraded from v1.0.x without reinstalling, fix it with:
 ```bash
 systemctl stop x-ui
-sqlite3 /etc/x-ui/x-ui.db "DELETE FROM settings WHERE key='webDomain';"
+sqlite3 /etc/x-ui/x-ui.db "UPDATE settings SET value='' WHERE key='webDomain';"
 systemctl start x-ui
 ```
+After upgrading to v1.1.0, this issue cannot recur.
 
 **Title not changing**  
 Make sure you're connecting to the proxy port, not the panel directly. Check `config.json` for correct listen port.

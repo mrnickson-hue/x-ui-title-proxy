@@ -15,7 +15,10 @@ import (
 	"strings"
 )
 
-const defaultConfigFile = "/etc/x-ui-proxy/config.json"
+const (
+	defaultConfigFile = "/etc/x-ui-proxy/config.json"
+	version           = "1.1.0"
+)
 
 type Config struct {
 	Listen  string `json:"listen"`
@@ -51,6 +54,27 @@ func extractNonce(csp string) string {
 	return rest[:end]
 }
 
+// stripWebDomain removes webDomain from a JSON settings payload.
+// 3X-UI's webDomain setting enables host-based filtering that blocks all proxy
+// requests with 403. Stripping it here prevents accidental self-lockout via the UI.
+func stripWebDomain(body []byte) []byte {
+	var data map[string]interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return body
+	}
+	val, ok := data["webDomain"]
+	if !ok || val == "" || val == nil {
+		return body
+	}
+	data["webDomain"] = ""
+	result, err := json.Marshal(data)
+	if err != nil {
+		return body
+	}
+	log.Printf("x-ui-proxy: stripped webDomain=%q from settings request", val)
+	return result
+}
+
 func main() {
 	configPath := flag.String("config", defaultConfigFile, "path to config file")
 	flag.Parse()
@@ -75,6 +99,17 @@ func main() {
 		orig(req)
 		req.Header.Del("Accept-Encoding")
 		req.Host = target.Host
+
+		// Intercept POST requests and strip webDomain from JSON bodies
+		if req.Method == http.MethodPost && req.Body != nil {
+			body, err := io.ReadAll(req.Body)
+			req.Body.Close()
+			if err == nil {
+				body = stripWebDomain(body)
+			}
+			req.Body = io.NopCloser(bytes.NewReader(body))
+			req.ContentLength = int64(len(body))
+		}
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
@@ -118,7 +153,7 @@ func main() {
 		return nil
 	}
 
-	log.Printf("x-ui-proxy: listening on %s → %s", cfg.Listen, cfg.Backend)
+	log.Printf("x-ui-proxy v%s: listening on %s → %s", version, cfg.Listen, cfg.Backend)
 	log.Fatal((&http.Server{
 		Addr:    cfg.Listen,
 		Handler: proxy,
