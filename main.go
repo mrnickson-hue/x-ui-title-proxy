@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.2.0"
+	version           = "1.3.0"
 )
 
 type Config struct {
@@ -54,25 +54,55 @@ func extractNonce(csp string) string {
 	return rest[:end]
 }
 
-// stripWebDomain removes webDomain from a JSON settings payload.
-// 3X-UI's webDomain setting enables host-based filtering that blocks all proxy
-// requests with 403. Stripping it here prevents accidental self-lockout via the UI.
-func stripWebDomain(body []byte) []byte {
+// stripWebDomainJSON removes webDomain from a JSON body.
+func stripWebDomainJSON(body []byte) ([]byte, bool) {
 	var data map[string]interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
-		return body
+		return body, false
 	}
 	val, ok := data["webDomain"]
 	if !ok || val == "" || val == nil {
-		return body
+		return body, false
 	}
 	data["webDomain"] = ""
 	result, err := json.Marshal(data)
 	if err != nil {
-		return body
+		return body, false
 	}
-	log.Printf("x-ui-proxy: stripped webDomain=%q from settings request", val)
-	return result
+	log.Printf("x-ui-proxy: stripped webDomain=%q (json)", val)
+	return result, true
+}
+
+// stripWebDomainForm removes webDomain from a form-encoded body.
+func stripWebDomainForm(body []byte) ([]byte, bool) {
+	vals, err := url.ParseQuery(string(body))
+	if err != nil {
+		return body, false
+	}
+	val := vals.Get("webDomain")
+	if val == "" {
+		return body, false
+	}
+	vals.Set("webDomain", "")
+	log.Printf("x-ui-proxy: stripped webDomain=%q (form)", val)
+	return []byte(vals.Encode()), true
+}
+
+// stripWebDomain strips webDomain from a POST body regardless of content type.
+func stripWebDomain(body []byte, contentType string) []byte {
+	if strings.Contains(contentType, "application/json") {
+		result, _ := stripWebDomainJSON(body)
+		return result
+	}
+	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		result, _ := stripWebDomainForm(body)
+		return result
+	}
+	// Unknown content type — try JSON, fall back to original
+	if result, ok := stripWebDomainJSON(body); ok {
+		return result
+	}
+	return body
 }
 
 func main() {
@@ -105,17 +135,6 @@ func main() {
 		orig(req)
 		req.Header.Del("Accept-Encoding")
 		req.Host = target.Host
-
-		// Intercept POST requests and strip webDomain from JSON bodies
-		if req.Method == http.MethodPost && req.Body != nil {
-			body, err := io.ReadAll(req.Body)
-			req.Body.Close()
-			if err == nil {
-				body = stripWebDomain(body)
-			}
-			req.Body = io.NopCloser(bytes.NewReader(body))
-			req.ContentLength = int64(len(body))
-		}
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
@@ -159,9 +178,24 @@ func main() {
 		return nil
 	}
 
+	// Wrap proxy in a handler that intercepts POST requests before the proxy sees them.
+	// This is more reliable than doing it in Director because the body is fully available here.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == http.MethodPost && req.Body != nil {
+			body, err := io.ReadAll(req.Body)
+			req.Body.Close()
+			if err == nil {
+				body = stripWebDomain(body, req.Header.Get("Content-Type"))
+			}
+			req.Body = io.NopCloser(bytes.NewReader(body))
+			req.ContentLength = int64(len(body))
+		}
+		proxy.ServeHTTP(w, req)
+	})
+
 	log.Printf("x-ui-proxy v%s: listening on %s → %s", version, cfg.Listen, cfg.Backend)
 	log.Fatal((&http.Server{
 		Addr:    cfg.Listen,
-		Handler: proxy,
+		Handler: handler,
 	}).ListenAndServeTLS(cfg.Cert, cfg.Key))
 }
