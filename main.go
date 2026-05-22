@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.4.0"
+	version           = "1.4.1"
 )
 
 type Config struct {
@@ -220,7 +220,9 @@ func main() {
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isWebSocketUpgrade(req) {
+		isWS := isWebSocketUpgrade(req)
+		log.Printf("x-ui-proxy: %s %s ws=%v", req.Method, req.URL.Path, isWS)
+		if isWS {
 			proxyWebSocket(w, req, target.Host)
 			return
 		}
@@ -237,8 +239,12 @@ func main() {
 	})
 
 	log.Printf("x-ui-proxy v%s: listening on %s → %s", version, cfg.Listen, cfg.Backend)
-	log.Fatal((&http.Server{
-		Addr:    cfg.Listen,
-		Handler: handler,
-	}).ListenAndServeTLS(cfg.Cert, cfg.Key))
+	// Disable HTTP/2: Hijack (required for WebSocket tunnelling) is not
+	// supported on HTTP/2 connections.
+	srv := &http.Server{
+		Addr:         cfg.Listen,
+		Handler:      handler,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+	log.Fatal(srv.ListenAndServeTLS(cfg.Cert, cfg.Key))
 }
