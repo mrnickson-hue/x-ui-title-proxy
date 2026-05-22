@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.4.2"
+	version           = "1.4.3"
 )
 
 type Config struct {
@@ -86,58 +86,6 @@ func stripWebDomainForm(body []byte) ([]byte, bool) {
 	vals.Set("webDomain", "")
 	log.Printf("x-ui-proxy: stripped webDomain=%q (form)", val)
 	return []byte(vals.Encode()), true
-}
-
-// isWebSocketUpgrade reports whether the request is a WebSocket upgrade.
-func isWebSocketUpgrade(req *http.Request) bool {
-	return strings.EqualFold(req.Header.Get("Upgrade"), "websocket") &&
-		strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade")
-}
-
-// proxyWebSocket tunnels a WebSocket connection to the backend via raw TCP.
-// httputil.ReverseProxy strips hop-by-hop headers and cannot handle the protocol
-// switch, so we hijack the client connection and pipe it directly.
-func proxyWebSocket(w http.ResponseWriter, req *http.Request, backendHost string) {
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "websocket not supported", http.StatusInternalServerError)
-		return
-	}
-	clientConn, brw, err := hijacker.Hijack()
-	if err != nil {
-		log.Printf("x-ui-proxy: ws hijack: %v", err)
-		return
-	}
-	defer clientConn.Close()
-
-	backendConn, err := tls.Dial("tcp", backendHost, &tls.Config{InsecureSkipVerify: true})
-	if err != nil {
-		log.Printf("x-ui-proxy: ws dial backend: %v", err)
-		return
-	}
-	defer backendConn.Close()
-
-	req.Host = backendHost
-	if err := req.Write(backendConn); err != nil {
-		log.Printf("x-ui-proxy: ws write request: %v", err)
-		return
-	}
-
-	log.Printf("x-ui-proxy: ws tunnel open %s", req.URL.Path)
-	done := make(chan struct{}, 2)
-	// Use brw.Reader as source so any data already buffered by the HTTP server
-	// is not lost (the raw clientConn would skip it).
-	go func() {
-		n, err := io.Copy(backendConn, brw.Reader)
-		log.Printf("x-ui-proxy: ws client→backend done: %d bytes, err=%v", n, err)
-		done <- struct{}{}
-	}()
-	go func() {
-		n, err := io.Copy(clientConn, backendConn)
-		log.Printf("x-ui-proxy: ws backend→client done: %d bytes, err=%v", n, err)
-		done <- struct{}{}
-	}()
-	<-done
 }
 
 // stripWebDomain strips webDomain from a POST body regardless of content type.
@@ -231,12 +179,7 @@ func main() {
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		isWS := isWebSocketUpgrade(req)
-		log.Printf("x-ui-proxy: %s %s ws=%v", req.Method, req.URL.Path, isWS)
-		if isWS {
-			proxyWebSocket(w, req, target.Host)
-			return
-		}
+		log.Printf("x-ui-proxy: %s %s", req.Method, req.URL.Path)
 		if req.Method == http.MethodPost && req.Body != nil {
 			body, err := io.ReadAll(req.Body)
 			req.Body.Close()
