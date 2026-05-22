@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.4.3"
+	version           = "1.4.4"
 )
 
 type Config struct {
@@ -134,7 +134,10 @@ func main() {
 	proxy.Director = func(req *http.Request) {
 		orig(req)
 		req.Header.Del("Accept-Encoding")
-		req.Host = target.Host
+		// Do NOT override req.Host. 3X-UI's WebSocket handler validates
+		// that Origin hostname matches r.Host; overriding Host to the
+		// backend address (127.0.0.1) breaks that check and rejects the
+		// WebSocket upgrade.
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
