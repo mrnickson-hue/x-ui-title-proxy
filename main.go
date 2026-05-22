@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.3.0"
+	version           = "1.4.0"
 )
 
 type Config struct {
@@ -86,6 +86,47 @@ func stripWebDomainForm(body []byte) ([]byte, bool) {
 	vals.Set("webDomain", "")
 	log.Printf("x-ui-proxy: stripped webDomain=%q (form)", val)
 	return []byte(vals.Encode()), true
+}
+
+// isWebSocketUpgrade reports whether the request is a WebSocket upgrade.
+func isWebSocketUpgrade(req *http.Request) bool {
+	return strings.EqualFold(req.Header.Get("Upgrade"), "websocket") &&
+		strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade")
+}
+
+// proxyWebSocket tunnels a WebSocket connection to the backend via raw TCP.
+// httputil.ReverseProxy strips hop-by-hop headers and cannot handle the protocol
+// switch, so we hijack the client connection and pipe it directly.
+func proxyWebSocket(w http.ResponseWriter, req *http.Request, backendHost string) {
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "websocket not supported", http.StatusInternalServerError)
+		return
+	}
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		log.Printf("x-ui-proxy: ws hijack: %v", err)
+		return
+	}
+	defer clientConn.Close()
+
+	backendConn, err := tls.Dial("tcp", backendHost, &tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		log.Printf("x-ui-proxy: ws dial backend: %v", err)
+		return
+	}
+	defer backendConn.Close()
+
+	req.Host = backendHost
+	if err := req.Write(backendConn); err != nil {
+		log.Printf("x-ui-proxy: ws write request: %v", err)
+		return
+	}
+
+	done := make(chan struct{}, 2)
+	go func() { io.Copy(backendConn, clientConn); done <- struct{}{} }()
+	go func() { io.Copy(clientConn, backendConn); done <- struct{}{} }()
+	<-done
 }
 
 // stripWebDomain strips webDomain from a POST body regardless of content type.
@@ -178,9 +219,11 @@ func main() {
 		return nil
 	}
 
-	// Wrap proxy in a handler that intercepts POST requests before the proxy sees them.
-	// This is more reliable than doing it in Director because the body is fully available here.
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isWebSocketUpgrade(req) {
+			proxyWebSocket(w, req, target.Host)
+			return
+		}
 		if req.Method == http.MethodPost && req.Body != nil {
 			body, err := io.ReadAll(req.Body)
 			req.Body.Close()
