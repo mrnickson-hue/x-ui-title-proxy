@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultConfigFile = "/etc/x-ui-proxy/config.json"
-	version           = "1.4.1"
+	version           = "1.4.2"
 )
 
 type Config struct {
@@ -103,7 +103,7 @@ func proxyWebSocket(w http.ResponseWriter, req *http.Request, backendHost string
 		http.Error(w, "websocket not supported", http.StatusInternalServerError)
 		return
 	}
-	clientConn, _, err := hijacker.Hijack()
+	clientConn, brw, err := hijacker.Hijack()
 	if err != nil {
 		log.Printf("x-ui-proxy: ws hijack: %v", err)
 		return
@@ -123,9 +123,20 @@ func proxyWebSocket(w http.ResponseWriter, req *http.Request, backendHost string
 		return
 	}
 
+	log.Printf("x-ui-proxy: ws tunnel open %s", req.URL.Path)
 	done := make(chan struct{}, 2)
-	go func() { io.Copy(backendConn, clientConn); done <- struct{}{} }()
-	go func() { io.Copy(clientConn, backendConn); done <- struct{}{} }()
+	// Use brw.Reader as source so any data already buffered by the HTTP server
+	// is not lost (the raw clientConn would skip it).
+	go func() {
+		n, err := io.Copy(backendConn, brw.Reader)
+		log.Printf("x-ui-proxy: ws client→backend done: %d bytes, err=%v", n, err)
+		done <- struct{}{}
+	}()
+	go func() {
+		n, err := io.Copy(clientConn, backendConn)
+		log.Printf("x-ui-proxy: ws backend→client done: %d bytes, err=%v", n, err)
+		done <- struct{}{}
+	}()
 	<-done
 }
 
